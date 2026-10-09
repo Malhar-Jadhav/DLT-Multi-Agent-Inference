@@ -1,0 +1,4 @@
+# Server-side dependencies, installed on the ICE GPU node only.
+# The vLLM version must be pinned once the team agrees on one (see docs/project_plan.md).
+# Replace the line below with an exact version, for example vllm==X.Y.Z, before the first benchmark run.
+vllm

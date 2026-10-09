@@ -1,0 +1,7 @@
+# Client-side dependencies: enough to download data, query a served model, and run tests.
+# The vLLM server has its own environment, see requirements-serving.txt.
+openai>=1.40
+huggingface_hub>=0.24
+datasets>=2.20
+pytest>=8.0
+numpy>=1.26  # imported by the HumanEval+ test harness
