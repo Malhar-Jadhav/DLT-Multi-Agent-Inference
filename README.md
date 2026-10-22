@@ -17,20 +17,23 @@ preregistered decision rule are in [docs/project_plan.md](docs/project_plan.md).
 
 ## Status
 
-This is version 1 of the shared foundation. It covers the model layer and the dataset layer so
-that everyone can run the models and load the same data. The agent workflows, the four levers,
-and the call tracer come next.
+Version 1 is the shared foundation: the model layer and the dataset layer. Version 2 adds the
+call tracer, the debate harness with levers L1 and L2 as switches, and a closed-loop runner.
+Version 2 was tested only with a fake model (no GPU), so its first real run is still to do.
 
 | Area | Status |
 |---|---|
 | Model registry, download, vLLM serving, client, comparison script | Done |
 | Dataset download and preprocessing (GSM8K, HumanEval+, bugged solutions, SRDD) | Done |
-| Tests for the above | Done, no GPU needed |
-| Call tracer and shared experiment runner | Not started |
-| Debate harness | Not started |
+| Call tracer (per-call and per-task records, critical path) | Done, tested with a fake model |
+| Debate harness (prompts copied from the released code) | Done, tested with a fake model |
+| Levers L1 (parallel dispatch) and L2 (coalescing) for debate | Done, tested with a fake model |
+| Closed-loop runner with concurrency C, resume, run config capture | Done, tested with a fake model |
+| First run against a real vLLM server | Not started |
+| Lever L3 (prefix caching) | Server flag exists; needs the first real run |
+| Lever L4 (model tiering) | Not started |
 | AutoGen group chat harness | Not started |
-| Levers L1 to L4 | Not started |
-| Load generator and analysis | Not started |
+| Analysis scripts (ablation table, load sweep) | Not started |
 
 ## Repository layout
 
@@ -59,10 +62,17 @@ DLT-Multi-Agent-Inference/
 |   |-- chatdev_srdd/          download.py, preprocess.py (stretch goal)
 |   |-- raw/                   Downloaded files (git-ignored)
 |   `-- processed/             eval.jsonl, dev.jsonl, manifest.json per dataset (git-ignored)
+|-- tracing/                   Call tracer: per-call and per-task timing records
+|   `-- tracer.py
+|-- systems/                   The multi-agent systems under test
+|   `-- debate.py              Debate harness with the L1 and L2 switches
+|-- experiments/               Entry points that run a system and record results
+|   `-- run_debate.py          Closed-loop GSM8K debate run, writes traces and a summary
 |-- slurm/                     Batch scripts for the ICE cluster
 |   |-- download_models.sbatch
 |   |-- prepare_data.sbatch
-|   `-- serve_models.sbatch    Serves the large and small model together
+|   |-- serve_models.sbatch    Serves the large and small model together
+|   `-- run_debate.sbatch      Serves both models, runs the debate, stops the servers
 |-- tests/                     Unit tests (pytest), no GPU or network needed
 |-- results/                   Committed experiment outputs, tables, and figures
 `-- logs/                      Cluster and run logs (git-ignored)
@@ -211,6 +221,40 @@ operator swap (`+` and `-`, `<` and `<=`, `>` and `>=`, `==` and `!=`) or adding
 integer literal. A mutant is kept only if the canonical solution passes the tests and the
 mutant fails them, so every bug in the set is real.
 
+## Running the debate
+
+The baseline is sequential calls, no coalescing, prefix caching off, every call on the large
+model. Each lever is a switch on top of it. Start the servers first (step 2 above), then:
+
+```bash
+# Baseline, 20 problems, 3 warm-up debates that are discarded
+python -m experiments.run_debate --prefix-caching off --limit 20 --warmup 3
+
+# L1 parallel dispatch, 4 debates in flight, server started with prefix caching on
+python -m experiments.run_debate --prefix-caching on --parallel --concurrency 4
+```
+
+On ICE, `sbatch slurm/run_debate.sbatch off --limit 20 --warmup 3` does both steps in one job.
+If a job is cut off, run the same command again with `--resume`.
+
+`--prefix-caching` records how the server was started. It does not change the server, so it
+must match the `serve_vllm` flag. The summary warns if the cache hit fraction disagrees.
+
+Each run writes a folder `logs/runs/<run-name>/` (git-ignored):
+
+| File | Content |
+|---|---|
+| `config.json` | Arguments, levers, sampling settings, git commit, package versions |
+| `calls.jsonl` | One row per model call: timings, prompt, cached and output tokens, agent, round |
+| `tasks.jsonl` | One row per debate: completion time, idle time, critical path, tokens, correct |
+| `transcripts.jsonl` | Every agent's messages, parsed answers, the vote and the gold answer |
+| `summary.json` | Median, mean and p95 completion time, accuracy, cache hit fraction, idle fraction |
+
+To keep a result, copy `summary.json` and `config.json` into `results/debate/` (see
+[results/README.md](results/README.md)). Per-call and per-task fields are defined in
+[tracing/tracer.py](tracing/tracer.py); scoring and prompts are in
+[systems/debate.py](systems/debate.py).
+
 ## Where to find things
 
 | I want to... | Look at |
@@ -219,6 +263,9 @@ mutant fails them, so every bug in the set is real.
 | Start or stop a model server | `models/serve_vllm.py`, `slurm/serve_models.sbatch` |
 | Call a model from experiment code | `models/client.py` |
 | Compare models on the same prompts | `models/compare_models.py` |
+| Run the debate under a configuration | `experiments/run_debate.py` |
+| Change the debate prompts, voting or scoring | `systems/debate.py` |
+| Change what is recorded per call or per task | `tracing/tracer.py` |
 | Change how a dataset is sampled or cleaned | `data/<dataset>/preprocess.py` |
 | Add a new dataset | Copy a folder in `data/`, then register it in `data/dataset_config.py` |
 | Score a GSM8K answer | `data/gsm8k/preprocess.py` |

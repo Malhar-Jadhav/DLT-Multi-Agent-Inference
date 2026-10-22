@@ -52,6 +52,25 @@ The hypothesis is supported only if all three hold:
 Secondary (H2): supported if the add-one gain of L1 at 32 concurrent tasks is less than half
 its gain at 1 task, for debate.
 
+## Implementation notes (2026-10-22)
+
+How the debate harness follows the released code of Du et al. (`gsm/gen_gsm.py`,
+`gsm/eval_gsm.py`), and where it deliberately differs. The two prompts are checked to be
+character-for-character identical to the released ones.
+
+* **Prompts and context layout:** copied. Round 1 prompts are identical for all three agents
+  (which is why coalescing applies to round 1 only). Round 2 prompts differ per agent.
+* **Sampling:** the released code used a hosted API model at its default settings. Here the
+  sampling is the project default (temperature 0.7, top-p 0.8).
+* **Scoring, three deliberate changes.** The released `eval_gsm.py` counts an unparseable
+  answer as correct, lets unparseable answers take part in the vote, and drops a minus sign.
+  Here an unparseable answer counts as wrong, does not vote, and keeps its minus sign. Quality
+  numbers are therefore not comparable with the released scoring.
+* **Seeds:** each call gets a per-request seed from `systems.debate.call_seed`, so a rerun or a
+  resumed run uses the same seeds for the same problem.
+* **Problem selection:** the seeded 200-problem eval split from `data/gsm8k`, not the released
+  script's shuffle of the test file.
+
 ## Open items that affect the code
 
 * **vLLM version.** Not yet pinned. Pin it in requirements-serving.txt before the first
