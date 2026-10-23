@@ -1,0 +1,30 @@
+# Load-sweep configuration (secondary hypothesis H2).
+# Reruns C0, C1 (just L1), and C5 (all) at varying concurrency levels.
+# Expected result: L1's add-one gain at concurrency 32 < half its gain at concurrency 1.
+
+system: debate           # debate is the system where L1 should matter most
+dataset: gsm8k
+split: eval
+seeds: [0, 1, 2]
+large_model: qwen3-14b
+small_model: qwen3-1.7b
+concurrency_levels: [1, 5, 10, 20, 32]
+
+configs:
+  - name: C0
+    l1_parallel: false
+    l2_coalesce: false
+    l3_cache: false
+    l4_tier: false
+
+  - name: C1
+    l1_parallel: true
+    l2_coalesce: false
+    l3_cache: false
+    l4_tier: false
+
+  - name: C5
+    l1_parallel: true
+    l2_coalesce: true
+    l3_cache: true
+    l4_tier: true

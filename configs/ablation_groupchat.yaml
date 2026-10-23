@@ -1,0 +1,80 @@
+# Ablation configurations for the group-chat system (HumanEval+, 164 tasks, seeds 0/1/2).
+# Identical lever flags to ablation_debate.yaml; the system and dataset differ.
+
+system: groupchat
+dataset: humanevalplus
+split: eval
+seeds: [0, 1, 2]
+large_model: qwen3-14b
+small_model: qwen3-1.7b
+
+configs:
+  - name: C0
+    description: "Baseline: all levers off, sequential, large model only, no caching"
+    l1_parallel: false
+    l2_coalesce: false
+    l3_cache: false
+    l4_tier: false
+
+  - name: C1
+    description: "Add-one: parallel dispatch only"
+    l1_parallel: true
+    l2_coalesce: false
+    l3_cache: false
+    l4_tier: false
+
+  - name: C2
+    description: "Add-one: request coalescing only"
+    l1_parallel: false
+    l2_coalesce: true
+    l3_cache: false
+    l4_tier: false
+
+  - name: C3
+    description: "Add-one: prefix caching only"
+    l1_parallel: false
+    l2_coalesce: false
+    l3_cache: true
+    l4_tier: false
+
+  - name: C4
+    description: "Add-one: model tiering only"
+    l1_parallel: false
+    l2_coalesce: false
+    l3_cache: false
+    l4_tier: true
+
+  - name: C5
+    description: "All levers on"
+    l1_parallel: true
+    l2_coalesce: true
+    l3_cache: true
+    l4_tier: true
+
+  - name: C6
+    description: "Leave-one-out: all minus L1 (parallel dispatch)"
+    l1_parallel: false
+    l2_coalesce: true
+    l3_cache: true
+    l4_tier: true
+
+  - name: C7
+    description: "Leave-one-out: all minus L2 (request coalescing)"
+    l1_parallel: true
+    l2_coalesce: false
+    l3_cache: true
+    l4_tier: true
+
+  - name: C8
+    description: "Leave-one-out: all minus L3 (prefix caching)"
+    l1_parallel: true
+    l2_coalesce: true
+    l3_cache: false
+    l4_tier: true
+
+  - name: C9
+    description: "Leave-one-out: all minus L4 (model tiering)"
+    l1_parallel: true
+    l2_coalesce: true
+    l3_cache: true
+    l4_tier: false
